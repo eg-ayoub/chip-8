@@ -4,14 +4,21 @@
 #include <exception>
 #include <atomic>
 
+#include <SDL3/SDL.h>
+
 #include <memory/memory.hpp>
 #include <font/font.hpp>
 #include <timer/timer.hpp>
 #include <reg/reg.hpp>
 #include <stack/stack.hpp>
+#include <display/display.hpp>
 
 #ifndef REGISTER_COUNT
 #define REGISTER_COUNT 16
+#endif
+
+#ifndef TIMER_CLOCK
+#define TIMER_CLOCK 60
 #endif
 
 namespace application
@@ -22,9 +29,12 @@ namespace application
         int clock;
         std::string rom_file_name;
 
+        SDL_Window *window;
+
         font::Font *font;
         memory::Memory *ram;
         stack::Stack *stack;
+        display::Display *display;
 
         std::vector<reg::register_t> *V; // registers
 

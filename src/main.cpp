@@ -20,6 +20,8 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
+    int retcode = 0;
+
     // setup logger
     spdlog::set_level(spdlog::level::info);
     if (result["debug"].as<bool>())
@@ -38,15 +40,26 @@ int main(int argc, char *argv[])
     catch (std::runtime_error &e)
     {
         spdlog::error("Failed to initialize chip-8 : {}", e.what());
-        exit(1);
+        retcode = 1;
     }
 
     // run app
-    spdlog::info("running chip-8");
-    app->run();
-
+    if (retcode == 0)
+    {
+        try
+        {
+            spdlog::info("running chip-8");
+            app->run();
+        }
+        catch (std::runtime_error &e)
+        {
+            spdlog::error("Runtime error : {}", e.what());
+            retcode = 1;
+        }
+    }
+    
     // exit gracefully
     delete app;
     spdlog::info("exiting");
-    exit(0);
+    exit(retcode);
 }

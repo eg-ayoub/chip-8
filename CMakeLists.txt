@@ -50,6 +50,9 @@ add_executable(
 	src/stack/stack.hpp
 	src/stack/stack.cpp
 
+	src/display/display.hpp
+	src/display/display.cpp
+
 	src/main.cpp
 )
 

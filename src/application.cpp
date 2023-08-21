@@ -1,6 +1,8 @@
 #include <fstream>
 #include <format>
 #include <algorithm>
+#include <chrono>
+#include <thread>
 
 #include <application.hpp>
 #include <spdlog/spdlog.h>
@@ -60,6 +62,23 @@ application::Application::Application(int clock, std::string rom, std::string fo
     // * stack
     spdlog::info("creating stack");
     this->stack = new stack::Stack();
+
+    // * display
+    spdlog::info("initializing SDL");
+    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+    {
+        throw std::runtime_error(std::format("unable to init SDL: {}", SDL_GetError()));
+    }
+
+    spdlog::info("creating SDL window");
+    this->window = SDL_CreateWindow("CHIP-8", DISPLAY_WIDTH * PIXEL_SIZE, DISPLAY_HEIGHT * PIXEL_SIZE, 0);
+    if (this->window == NULL)
+    {
+        throw std::runtime_error(std::format("unable to init SDL window: {}", SDL_GetError()));
+    }
+
+    spdlog::info("creating display object");
+    this->display = new display::Display(this->window);
 }
 
 application::Application::~Application()
@@ -102,6 +121,10 @@ void application::Application::init()
     // * I
     spdlog::info("setting memory index to 0");
     this->I = 0;
+
+    // * display
+    spdlog::info("initializing display");
+    this->display->init();
 }
 
 void application::Application::run()
@@ -133,6 +156,17 @@ void application::Application::cleanup()
     // * stack
     spdlog::info("cleaning up stack");
     delete this->stack;
+
+    // * keypad
+
+    // * display
+    spdlog::info("cleaning up display");
+    delete this->display;
+
+    spdlog::info("destroying sdl window");
+    SDL_DestroyWindow(this->window);
+    this->window = NULL;
+    SDL_Quit();
 }
 
 void application::Application::timers_thread()
@@ -140,6 +174,9 @@ void application::Application::timers_thread()
     this->stop_timers_thread = false;
     while (not this->stop_timers_thread)
     {
+        // wait 1/60 second
+        // std::this_thread::sleep_for(std::chrono::duration<double, std::ratio<1, TIMER_CLOCK>>(1));
+
         if (this->delay_timer != 0)
         {
             this->delay_timer--;
@@ -154,5 +191,19 @@ void application::Application::timers_thread()
 
 void application::Application::main_thread()
 {
-    // nothing to see here
+    int c = 0;
+    while (c < 5)
+    {
+        if (this->stop_timers_thread)
+        {
+            // something bad happened in the other thread
+            spdlog::warn("something bad happened to the timer thread");
+            break;
+        }
+        this->display->draw(0, 0, new std::vector<std::byte>({std::byte{0b01010101}}));
+        this->display->update();
+        // std::this_thread::sleep_for(std::chrono::seconds(1));
+        SDL_Delay(1000);
+        c++;
+    }
 }
