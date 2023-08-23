@@ -22,5 +22,6 @@ namespace stack
         void init();
         void push(memory::mem_addr data);
         memory::mem_addr pop();
+        void view_stack();
     };
 }

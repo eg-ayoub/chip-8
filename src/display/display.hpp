@@ -54,7 +54,7 @@ namespace display
         ~Display();
         void init();
         void clear();
-        void draw(size_t x, size_t y, std::vector<std::byte> *sprite);
+        int draw(size_t x, size_t y, std::vector<std::byte> *sprite);
         void update();
     };
 }

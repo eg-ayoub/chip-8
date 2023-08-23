@@ -80,35 +80,46 @@ void display::Display::update()
             size_t p = index(x, y);
             if (this->pixels->at(p).state)
             {
-                // ? works
-                spdlog::info(this->pixels->at(p).toString());
-                // ? doesn't draw
+                SDL_SetRenderDrawColor(this->renderer, this->fgcol.r, this->fgcol.g, this->fgcol.b, this->fgcol.a);
+                // spdlog::info(this->pixels->at(p).toString());
                 SDL_RenderFillRect(this->renderer, &(this->pixels->at(p).rect));
+                SDL_SetRenderDrawColor(this->renderer, 0, 0, 0, this->fgcol.a);
+                SDL_RenderRect(this->renderer, &(this->pixels->at(p).rect));
+
             }
         }
     }
-    // ? draws
-    SDL_RenderFillRect(this->renderer, &(this->pixels->at(0).rect));
-    SDL_RenderFillRect(this->renderer, &(this->pixels->at(2).rect));
-    SDL_RenderFillRect(this->renderer, &(this->pixels->at(4).rect));
-
 
     // * present
     SDL_RenderPresent(this->renderer);
+    SDL_Delay(0);
 }
 
-void display::Display::draw(size_t x, size_t y, std::vector<std::byte> *sprite)
+int display::Display::draw(size_t x, size_t y, std::vector<std::byte> *sprite)
 {
+    int ret = 0;
+    // wrap screen
+    x = x % DISPLAY_WIDTH;
+    y = y % DISPLAY_HEIGHT;
     // we draw from (x, y) to (x + 8, y + LEN)
     for (size_t rel_x = 0; rel_x < 8; rel_x++)
     {
         for (size_t rel_y = 0; rel_y < sprite->size(); rel_y++)
         {
-            if ((sprite->at(rel_y) & FLAGS[rel_x]) != std::byte{0})
+            if ((sprite->at(rel_y) & FLAGS[7 - rel_x]) != std::byte{0})
             {
                 size_t p = index(x + rel_x, y + rel_y);
-                this->pixels->at(p).state = not this->pixels->at(p).state;
+                if (p < this->pixels->size())
+                {
+                    this->pixels->at(p).state = not this->pixels->at(p).state;
+                    if (not this->pixels->at(p).state)
+                    {
+                        // a pixel was turned off
+                        ret = 1;
+                    }
+                }
             }
         }
     }
+    return ret;
 }

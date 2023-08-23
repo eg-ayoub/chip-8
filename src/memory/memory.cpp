@@ -19,6 +19,11 @@ void memory::Memory::init()
 {
     spdlog::info("allocating memory for chip-8");
     this->memory = new std::vector<std::byte>(MEM_SIZE);
+    // we need to set everything to 0 here
+    for (std::size_t i = 0; i < MEM_SIZE; i++)
+    {
+        this->memory->at(i) = std::byte{0};
+    }
 }
 
 void memory::Memory::load_font(font::Font *font_data)

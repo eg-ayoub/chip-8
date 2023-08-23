@@ -23,10 +23,13 @@
 
 namespace application
 {
+    const std::byte FIRST_NIBBLE = std::byte{0xF0};
+    const std::byte SECOND_NIBBLE = std::byte{0x0F};
+
     class Application
     {
     private:
-        int clock;
+        uint clock;
         std::string rom_file_name;
 
         SDL_Window *window;
@@ -47,12 +50,12 @@ namespace application
         std::atomic<bool> stop_timers_thread;
 
     public:
-        Application(int clock, std::string rom, std::string font);
+        Application(uint clock, std::string rom, std::string font);
         ~Application();
         void init();
         void run();
         void cleanup();
         void timers_thread();
-        void main_thread();
+        void interpret(std::byte n12, std::byte n34);
     };
 }

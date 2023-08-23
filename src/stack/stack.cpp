@@ -22,7 +22,7 @@ void stack::Stack::init()
 
 void stack::Stack::push(memory::mem_addr data)
 {
-    if (top + 1 > STACK_SIZE)
+    if ((top + 1) >= STACK_SIZE)
     {
         throw std::runtime_error("stack overflow");
     }
@@ -36,4 +36,14 @@ memory::mem_addr stack::Stack::pop()
         throw std::runtime_error("empty stack");
     }
     return this->s->at(top--);
+}
+
+void stack::Stack::view_stack()
+{
+    spdlog::info("STACK DUMP");
+    for (int cur = top; cur >= 0; cur--)
+    {
+        spdlog::info("{}{:2}: 0x{:<x}", cur == top? ">" : " ", cur, this->s->at(cur));
+    }
+    spdlog::info("END STACK DUMP");
 }
