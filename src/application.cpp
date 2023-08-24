@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <thread>
+#include <cstdlib>
 
 #include <application.hpp>
 #include <spdlog/spdlog.h>
@@ -107,7 +108,7 @@ void application::Application::init()
 
     // * registers
     spdlog::info("setting registers to 0");
-    std::fill(this->V->begin(), this->V->end(), (std::byte)0);
+    std::fill(this->V->begin(), this->V->end(), std::byte{0});
 
     // * timers
     spdlog::info("setting timers to 0");
@@ -213,6 +214,8 @@ void application::Application::cleanup()
 void application::Application::timers_thread()
 {
     this->stop_timers_thread = false;
+    this->delay_timer = 0;
+    this->sound_timer = 0;
     while (not this->stop_timers_thread)
     {
         // * wait 1/60 second
@@ -233,10 +236,10 @@ void application::Application::timers_thread()
 
 void application::Application::interpret(std::byte n12, std::byte n34)
 {
-    uint vx, vy, X, Y, N, result;
+    uint8_t vx, vy, X, Y, N, result;
     memory::mem_addr to, index;
     std::vector<std::byte> *sprite;
-    spdlog::trace("INST 0x{:02X}{:02X}", n12, n34);
+    spdlog::info("INST 0x{:02X}{:02X}", n12, n34);
     switch (n12 & FIRST_NIBBLE)
     {
         case std::byte{0x00}:
@@ -269,25 +272,161 @@ void application::Application::interpret(std::byte n12, std::byte n34)
             this->PC = to;
             break;
         case std::byte{0x30}:
+            // skip if VX == NN
+            vx = (uint8_t)(n12 & SECOND_NIBBLE);
+            if (this->V->at(vx) == n34)
+            {
+                this->PC += 2;
+            }
             break;
         case std::byte{0x40}:
+            // skip if VX != NN
+            vx = (uint8_t)(n12 & SECOND_NIBBLE);
+            if (this->V->at(vx) != n34)
+            {
+                this->PC += 2;
+            }
             break;
         case std::byte{0x50}:
+            // skip if VX == VY
+            vx = (uint8_t)(n12 & SECOND_NIBBLE);
+            vy = (uint8_t)(n34 & FIRST_NIBBLE) >> 4;
+            if (this->V->at(vx) == this->V->at(vy))
+            {
+                this->PC += 2;
+            }
             break;
         case std::byte{0x60}:
             // set VX = NN
-            vx = (uint)(n12 & SECOND_NIBBLE);
+            vx = (uint8_t)(n12 & SECOND_NIBBLE);
             this->V->at(vx) = n34;
             break;
         case std::byte{0x70}:
             // set VX = VX + NN
-            vx = (uint)(n12 & SECOND_NIBBLE);
-            result = (uint)(std::byte{this->V->at(vx)}) + (uint)n34;
+            vx = (uint8_t)(n12 & SECOND_NIBBLE);
+            result = (uint8_t)(std::byte{this->V->at(vx)}) + (uint8_t)n34;
             this->V->at(vx) = std::byte{result};
             break;
         case std::byte{0x80}:
+            // decode accorfing to second nibble of second byte
+            switch (n34 & SECOND_NIBBLE)
+            {
+                case std::byte{0x00}:
+                    // VX = VY
+                    vx = (uint8_t)(n12 & SECOND_NIBBLE);
+                    vy = (uint8_t)(n34 & FIRST_NIBBLE) >> 4;
+                    this->V->at(vx) = this->V->at(vy);
+                    break;
+                case std::byte{0x01}:
+                    // VX = VX OR VY
+                    vx = (uint8_t)(n12 & SECOND_NIBBLE);
+                    vy = (uint8_t)(n34 & FIRST_NIBBLE) >> 4;
+                    this->V->at(vx) = this->V->at(vx) | this->V->at(vy);
+                    break;
+                case std::byte{0x02}:
+                    // VX = VX AND VY
+                    vx = (uint8_t)(n12 & SECOND_NIBBLE);
+                    vy = (uint8_t)(n34 & FIRST_NIBBLE) >> 4;
+                    this->V->at(vx) = this->V->at(vx) & this->V->at(vy);
+                    break;
+                case std::byte{0x03}:
+                    // VX = VX XOR VY
+                    vx = (uint8_t)(n12 & SECOND_NIBBLE);
+                    vy = (uint8_t)(n34 & FIRST_NIBBLE) >> 4;
+                    this->V->at(vx) = this->V->at(vx) ^ this->V->at(vy);
+                    break;
+                case std::byte{0x04}:
+                    // VX = VX + VY
+                    vx = (uint8_t)(n12 & SECOND_NIBBLE);
+                    vy = (uint8_t)(n34 & FIRST_NIBBLE) >> 4;
+                    if ((uint8_t)this->V->at(vx) > UINT8_MAX - (uint8_t)this->V->at(vy))
+                    {
+                        // overflow
+                        this->V->at(0xF) = std::byte{0x1};
+                    }
+                    else
+                    {
+                        this->V->at(0xF) = std::byte{0};
+                    }
+                    result = (uint8_t) this->V->at(vx) + (uint8_t)this->V->at(vy);
+                    this->V->at(vx) = std::byte{result};
+                    break;
+                case std::byte{0x05}:
+                    // VX = VX - VY
+                    vx = (uint8_t)(n12 & SECOND_NIBBLE);
+                    vy = (uint8_t)(n34 & FIRST_NIBBLE) >> 4;
+                    if ((uint8_t)this->V->at(vx) > (uint8_t)this->V->at(vy))
+                    {
+                        this->V->at(0xF) = std::byte{0x1};
+                    }
+                    else
+                    {
+                        // underflow
+                        this->V->at(0xF) = std::byte{0};
+                    }
+                    result = (uint8_t) this->V->at(vx) - (uint8_t)this->V->at(vy);
+                    this->V->at(vx) = std::byte{result};
+                    break;
+                case std::byte{0x06}:
+                    // shift right
+                    vx = (uint8_t)(n12 & SECOND_NIBBLE);
+                    vy = (uint8_t)(n34 & FIRST_NIBBLE) >> 4;
+                    #if ORIGINAL_SHIFT
+                    this->V->at(vx) = this->V->at(vy);
+                    #endif
+                    if ((this->V->at(vx) & std::byte{0x1}) != std::byte{0})
+                    {
+                        this->V->at(0xF) = std::byte{0x1};
+                    }
+                    else
+                    {
+                        this->V->at(0xF) = std::byte{0};
+                    }
+                    this->V->at(vx) >>= 1;
+                    break;
+                case std::byte{0x07}:
+                    // VX = VY - VX
+                    vx = (uint8_t)(n12 & SECOND_NIBBLE);
+                    vy = (uint8_t)(n34 & FIRST_NIBBLE) >> 4;
+                    if ((uint8_t)this->V->at(vy) > (uint8_t)this->V->at(vx))
+                    {
+                        this->V->at(0xF) = std::byte{0x1};
+                    }
+                    else
+                    {
+                        // underflow
+                        this->V->at(0xF) = std::byte{0};
+                    }
+                    result = (uint8_t) this->V->at(vy) - (uint8_t)this->V->at(vx);
+                    this->V->at(vx) = std::byte{result};
+                    break;
+                case std::byte{0x0E}:
+                    // shift left
+                    vx = (uint8_t)(n12 & SECOND_NIBBLE);
+                    vy = (uint8_t)(n34 & FIRST_NIBBLE) >> 4;
+                    #if ORIGINAL_SHIFT
+                    this->V->at(vx) = this->V->at(vy);
+                    #endif
+                    if ((this->V->at(vx) & std::byte{0x80}) != std::byte{0x80})
+                    {
+                        this->V->at(0xF) = std::byte{0x1};
+                    }
+                    else
+                    {
+                        this->V->at(0xF) = std::byte{0};
+                    }
+                    this->V->at(vx) <<= 1;
+                    break;
+            }
             break;
         case std::byte{0x90}:
+            // skip if VX != VY
+            vx = (uint)(n12 & SECOND_NIBBLE);
+            vy = (uint)(n34 & FIRST_NIBBLE) >> 4;
+            if (this->V->at(vx) != this->V->at(vy))
+            {
+                this->PC += 2;
+            }
             break;
         case std::byte{0xA0}:
             // set index
@@ -295,8 +434,18 @@ void application::Application::interpret(std::byte n12, std::byte n34)
             this->I = index;
             break;
         case std::byte{0xB0}:
+            vx = (uint)(n12 & SECOND_NIBBLE);
+            #if ORIGINAL_B_JUMP
+            vx = 0;
+            #endif
+            to = (memory::mem_addr)(n12 & SECOND_NIBBLE) << 8 | (memory::mem_addr)n34;
+            to += (uint8_t) this->V->at(vx);
+            this->PC = to;
             break;
         case std::byte{0xC0}:
+            vx = (uint)(n12 & SECOND_NIBBLE);
+            result = (rand() % 0xFF) ^ (uint8_t)n34;
+            this->V->at(vx) = std::byte{result};
             break;
         case std::byte{0xD0}:
             // Draw
@@ -321,8 +470,61 @@ void application::Application::interpret(std::byte n12, std::byte n34)
             this->display->update();
             break;
         case std::byte{0xE0}:
+            switch (n34)
+            {
+                case std::byte{0x9E}:
+                    break;
+                case std::byte{0xA1}:
+                    break;
+            }
             break;
         case std::byte{0xF0}:
+            switch (n34)
+            {
+                case std::byte{0x07}:
+                    vx = (uint)(n12 & SECOND_NIBBLE);
+                    this->V->at(vx) = std::byte{(uint8_t)this->delay_timer};
+                    break;
+                case std::byte{0x15}:
+                    vx = (uint)(n12 & SECOND_NIBBLE);
+                    this->delay_timer = (uint8_t)this->V->at(vx);
+                    break;
+                case std::byte{0x18}:
+                    vx = (uint)(n12 & SECOND_NIBBLE);
+                    this->sound_timer = (uint8_t)this->V->at(vx);
+                    break;
+                case std::byte{0x1E}:
+                    vx = (uint)(n12 & SECOND_NIBBLE);
+                    this->I += (uint8_t) this->V->at(vx);
+                    if (this->I >= 0x1000) {
+                        this->V->at(0xF) = std::byte{1};
+                    }
+                    break;
+                case std::byte{0x0A}:
+                    break;
+                case std::byte{0x29}:
+                    vx = (uint)(n12 & SECOND_NIBBLE);
+                    // the letter we want to print
+                    to = FONT_START_AT +  5 * (uint8_t)(this->V->at(vx) & SECOND_NIBBLE);
+                    this->I = to;
+                    break;
+                case std::byte{0x33}:
+                    vx = (uint)(n12 & SECOND_NIBBLE);
+                    X = (uint8_t)this->V->at(vx);
+                    // units
+                    this->ram->write(this->I, std::byte{X%10});
+                    X /= 10;
+                    // tens
+                    this->ram->write(this->I + 1, std::byte{X%10});
+                    X /= 10;
+                    // hundreds
+                    this->ram->write(this->I + 2, std::byte{X%10});
+                    break;
+                case std::byte{0x55}:
+                    break;
+                case std::byte{0x65}:
+                    break;
+            }
             break;
     }
 }

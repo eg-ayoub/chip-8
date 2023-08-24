@@ -2,5 +2,5 @@
 
 namespace reg
 {
-    typedef std::atomic<std::byte> register_t;
+    typedef std::byte register_t;
 }

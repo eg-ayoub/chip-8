@@ -15,8 +15,8 @@ display::Display::Display(SDL_Window *window)
 {
     this->window = window;
     this->renderer = NULL;
-    this->bgcol = {0xFF, 0xFF, 0xFF, SDL_ALPHA_OPAQUE};
-    this->fgcol = {0xFF, 0x00, 0x00, SDL_ALPHA_OPAQUE};
+    this->bgcol = {0x81, 0xBE, 0xCE, SDL_ALPHA_OPAQUE};
+    this->fgcol = {0x01, 0x2F, 0x4A, SDL_ALPHA_OPAQUE};
 }
 
 display::Display::~Display()
@@ -83,8 +83,8 @@ void display::Display::update()
                 SDL_SetRenderDrawColor(this->renderer, this->fgcol.r, this->fgcol.g, this->fgcol.b, this->fgcol.a);
                 // spdlog::info(this->pixels->at(p).toString());
                 SDL_RenderFillRect(this->renderer, &(this->pixels->at(p).rect));
-                SDL_SetRenderDrawColor(this->renderer, 0, 0, 0, this->fgcol.a);
-                SDL_RenderRect(this->renderer, &(this->pixels->at(p).rect));
+                // SDL_SetRenderDrawColor(this->renderer, 0, 0, 0, this->fgcol.a);
+                // SDL_RenderRect(this->renderer, &(this->pixels->at(p).rect));
 
             }
         }
