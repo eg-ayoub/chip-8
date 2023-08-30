@@ -12,6 +12,7 @@
 #include <reg/reg.hpp>
 #include <stack/stack.hpp>
 #include <display/display.hpp>
+#include <keypad/keypad.hpp>
 
 #ifndef REGISTER_COUNT
 #define REGISTER_COUNT 16
@@ -38,6 +39,7 @@ namespace application
         memory::Memory *ram;
         stack::Stack *stack;
         display::Display *display;
+        keypad::Keypad *keypad;
 
         std::vector<reg::register_t> *V; // registers
 

@@ -55,6 +55,9 @@ add_executable(
 	src/display/display.hpp
 	src/display/display.cpp
 
+	src/keypad/keypad.hpp
+	src/keypad/keypad.cpp
+
 	src/main.cpp
 )
 
