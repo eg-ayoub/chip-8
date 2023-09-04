@@ -66,7 +66,7 @@ application::Application::Application(uint clock, std::string rom, std::string f
 
     // * display
     spdlog::info("initializing SDL");
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0)
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_AUDIO) < 0)
     {
         throw std::runtime_error(std::format("unable to init SDL: {}", SDL_GetError()));
     }
@@ -84,6 +84,10 @@ application::Application::Application(uint clock, std::string rom, std::string f
     // * keypad
     spdlog::info("creating keypad object");
     this->keypad = new keypad::Keypad();
+
+    // * beeper
+    spdlog::info("creating beeper object");
+    this->beeper = new beep::Beeper();
 }
 
 application::Application::~Application()
@@ -134,6 +138,10 @@ void application::Application::init()
     // * keypad
     spdlog::info("initializing keypad");
     this->keypad->init();
+
+    // * beeper
+    spdlog::info("initializing beeper");
+    this->beeper->init();
 }
 
 void application::Application::run()
@@ -224,9 +232,16 @@ void application::Application::cleanup()
     spdlog::info("cleaning up keypad");
     delete this->keypad;
 
+    // * beeper
+    spdlog::info("cleaning up beeper");
+    delete this->beeper;
+
     // * display
     spdlog::info("cleaning up display");
     delete this->display;
+    
+    spdlog::info("destroying sdl mixer");
+    Mix_Quit();
 
     spdlog::info("destroying sdl window");
     SDL_DestroyWindow(this->window);
@@ -251,8 +266,11 @@ void application::Application::timers_thread()
 
         if (this->sound_timer != 0)
         {
-            //  TODO play sound
+            this->beeper->start();
             this->sound_timer--;
+        }
+        else {
+            this->beeper->stop();
         }
     }
 }
@@ -565,7 +583,6 @@ void application::Application::interpret(std::byte n12, std::byte n34)
                 case std::byte{0x33}:
                     vx = (uint8_t)(n12 & SECOND_NIBBLE);
                     X = (uint8_t)this->V->at(vx);
-                    spdlog::info("BCD of {}", X);
                     // units
                     this->ram->write(this->I, std::byte{X/100});
                     // spdlog::info("{} takes {}", this->I, std::byte{X/100});

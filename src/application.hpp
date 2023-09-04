@@ -13,6 +13,7 @@
 #include <stack/stack.hpp>
 #include <display/display.hpp>
 #include <keypad/keypad.hpp>
+#include <beep/beep.hpp>
 
 #ifndef REGISTER_COUNT
 #define REGISTER_COUNT 16
@@ -40,6 +41,7 @@ namespace application
         stack::Stack *stack;
         display::Display *display;
         keypad::Keypad *keypad;
+        beep::Beeper *beeper;
 
         std::vector<reg::register_t> *V; // registers
 
